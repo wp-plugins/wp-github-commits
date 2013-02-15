@@ -4,15 +4,34 @@ Plugin Name: WP Github Commits
 Plugin URI: http://sudarmuthu.com/wordpress/wp-github-commits
 Description: Displays the latest commits of a github repo in the sidebar.
 Author: Sudar
-Version: 0.2
+Version: 0.3
 Author URI: http://sudarmuthu.com/
 Text Domain: wp-github-commits
 
 === RELEASE NOTES ===
 2013-02-11 - v0.1 - (Dev Time: 3 hours)
                   - Initial Release
-2013-02-12 - v0.2 - (Dev Time: 1 hour)
+2013-02-13 - v0.2 - (Dev Time: 1 hour)
                   - Added option to take repo name from custom field in a post
+2013-02-14 - v0.3 - (Dev Time: 1 hour)
+                  - Use custom field for widget title only if it non-blank
+                  - Formatted the date into a human readable format
+*/
+
+/*  Copyright 2013  Sudar Muthu  (email : sudar@sudarmuthu.com)
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License, version 2, as
+    published by the Free Software Foundation.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 /**
@@ -26,6 +45,7 @@ class WP_Github_Commits {
 
     const CUSTOM_FIELD = 'wp_github_commits_page_fields';
     const TITLE_FILTER = 'github-commits-title';
+    const CACHE_KEY_SLUG = 'github-commits-';
 
     /**
      * Initalize the plugin by registering the hooks
@@ -52,7 +72,9 @@ class WP_Github_Commits {
         if ($post_id > 0) {
             $wp_github_commits_page_fields = get_post_meta($post_id, self::CUSTOM_FIELD, TRUE);
             if (isset($wp_github_commits_page_fields) && is_array($wp_github_commits_page_fields)) {
-                $title = $wp_github_commits_page_fields['widget_title'];
+                if ($wp_github_commits_page_fields['widget_title'] != '') {
+                    $title = $wp_github_commits_page_fields['widget_title'];
+                }
             }
         }
 
@@ -195,7 +217,7 @@ class WP_Github_Commits {
             }
         }
 
-        $key = "github-commits-$user-$repo";
+        $key = self::CACHE_KEY_SLUG . "$user-$repo";
 
         if (false === ( $commits = get_transient( $key ) ) ) {
             if(!class_exists('Github_API')){
@@ -205,7 +227,7 @@ class WP_Github_Commits {
             $github_api = new Github_API();
             $commits = $github_api->get_repo_commits($user, $repo);
 
-            set_transient($key, $commits, 5 * HOUR_IN_SECONDS); // 60*60*1 - 5 hour
+            set_transient($key, $commits, 5 * HOUR_IN_SECONDS); // 5 hours TODO: Make it configurable
         }
 
         // TODO: Make it plugable
@@ -215,7 +237,7 @@ class WP_Github_Commits {
             $output .= '<li class = "github-commit">';
             $output .= "<a href = 'https://github.com/$user/$repo/commit/{$commit->sha}'>" . $commit->commit->message . '</a> ';
             $output .= __('by', 'wp-github-commits') . " <a href = 'https://github.com/{$commit->commit->author->name}'>" . $commit->commit->author->name . '</a> ';
-            $output .= __('on', 'wp-github-commits') . ' ' . $commit->commit->author->date;
+            $output .= __('on', 'wp-github-commits') . ' ' . date("M d, Y @ H:i", strtotime($commit->commit->author->date));
             $output .= '</li>';
 
             if ($count == $counter) {
